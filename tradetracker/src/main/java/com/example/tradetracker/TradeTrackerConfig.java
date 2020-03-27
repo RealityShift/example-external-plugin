@@ -22,24 +22,65 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.example.javaexample;
+package com.example.tradetracker;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("JavaExampleConfig")
+@ConfigGroup("tradetracker")
+public interface TradeTrackerConfig extends Config {
 
-public interface JavaExampleConfig extends Config
-{
 	@ConfigItem(
-		keyName = "example",
-		name = "Example config item",
-		description = "Example",
-		position = 0
+			keyName = "onlyShowWhitelist",
+			name = "Only Show Whitelist",
+			description = "Hides trades from all not whitelisted",
+			position = 1
 	)
-	default boolean example()
+	default boolean onlyShowWhitelist() { return false; }
+
+	@ConfigItem(
+			keyName = "whitelistedPlayers",
+			name = "Whitelisted Players",
+			description = "List of whitelisted players, one name per line. ALWAYS overrides other checks.",
+			position = 2
+	)
+	default String whitelistedPlayers() { return ""; }
+
+	@ConfigItem(
+			keyName = "amountTraded",
+			name = "Amount Traded",
+			description = "Amount traded in long form (eg. 3,000,000)",
+			position = 3
+	)
+	default String amountTraded()
 	{
-		return true;
+		return "";
 	}
+
+	@ConfigItem(
+			keyName = "showAdvertisers",
+			name = "Show Advertiser TRADEREQS",
+			description = "Shows trade requests from advertisers",
+			position = 4
+	)
+	default boolean onlyShowAdvertisers() { return false; }
+
+	@ConfigItem(
+			keyName = "hidePaidAdvertisers",
+			name = "Hide Paid Advertiser TRADEREQS",
+			description = "Hide trade requests from advertisers who have been paid",
+			position = 5
+	)
+	default boolean hidePaidAdvertisers() { return true; }
+
+	@ConfigItem(
+			keyName = "adWords",
+			name = "Words that must be in the message",
+			description = "One word per line. Each word is required in a single message.",
+			position = 5
+	)
+	default String adWords() { return ""; }
+
+
 }
