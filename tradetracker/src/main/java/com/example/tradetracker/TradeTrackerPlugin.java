@@ -7,7 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.MessageNode;
-import net.runelite.api.events.*;
+import net.runelite.api.events.ScriptCallbackEvent;
+import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -19,7 +20,6 @@ import org.pf4j.Extension;
 import net.runelite.client.plugins.PluginType;
 
 import javax.inject.Inject;
-
 import java.util.ArrayList;
 
 import static net.runelite.api.ChatMessageType.PUBLICCHAT;
@@ -56,19 +56,11 @@ public class TradeTrackerPlugin extends Plugin {
     private ArrayList<String> whiteListedPlayers = new ArrayList<>();
     private ArrayList<String> advertisers = new ArrayList<>();
     private ArrayList<String> adWords = new ArrayList<>();
-    private String amountTraded;
-    private boolean onlyShowWhitelist;
-    private boolean showAdRequests;
-    private boolean hidePaidAdvertisers;
 
     @Override
     protected void startUp() throws Exception {
         updateWhiteListedNames();
         updateAdWords();
-        amountTraded = config.amountTraded();
-        onlyShowWhitelist = config.onlyShowWhitelist();
-        showAdRequests = config.onlyShowAdvertisers();
-        hidePaidAdvertisers = config.hidePaidAdvertisers();
 
         client.refreshChat();
     }
@@ -76,8 +68,6 @@ public class TradeTrackerPlugin extends Plugin {
     @Override
     protected void shutDown() throws Exception {
         usersTradedAlready.clear();
-
-
         client.refreshChat();
     }
 
@@ -87,10 +77,6 @@ public class TradeTrackerPlugin extends Plugin {
             return;
         }
 
-        amountTraded = config.amountTraded();
-        onlyShowWhitelist = config.onlyShowWhitelist();
-        showAdRequests = config.onlyShowAdvertisers();
-        hidePaidAdvertisers = config.hidePaidAdvertisers();
         updateWhiteListedNames();
         updateAdWords();
 
@@ -120,11 +106,11 @@ public class TradeTrackerPlugin extends Plugin {
                 } else {
 
                     // If only whitelist, don't show any
-                    if (onlyShowWhitelist) {
+                    if (config.onlyShowWhitelist()) {
                         intStack[intStackSize - 3] = 0;
                     } else {
                         // if show ads is on, show trades if user has advertised
-                        if (showAdRequests) {
+                        if (config.onlyShowAdvertisers()) {
                             if (advertisers.contains(playerName)) {
                                 String oldmessage = messageNode.getValue();
 
@@ -150,7 +136,7 @@ public class TradeTrackerPlugin extends Plugin {
                         }
 
                         // If hide paid ads is on, remove trades from players who have been paid
-                        if (hidePaidAdvertisers) {
+                        if (config.hidePaidAdvertisers()) {
                             if (usersTradedAlready.contains(playerName)) {
                                 intStack[intStackSize - 3] = 0;
                             }
@@ -179,28 +165,6 @@ public class TradeTrackerPlugin extends Plugin {
         }
     }
 
-//    @Subscribe
-//    public void onChatMessage(ChatMessage chatMessage) {
-//        MessageNode messageNode = chatMessage.getMessageNode();
-//        boolean update = false;
-//
-//        switch (chatMessage.getType())
-//        {
-//            case TRADEREQ:
-//                System.out.println(chatMessage);
-//
-//                String playerName = messageNode.getName();
-//                String fakeplayer = "Alt nation";
-//
-//                playerName = playerName.replace(' ', ' ');
-//
-//                if (usersTradedAlready.contains(playerName)) {
-//                    messageNode.setValue(messageNode.getValue() + " -- Already Paid ads.");
-//                }
-//                break;
-//        }
-//    }
-
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event) {
         System.out.println("Widget!");
@@ -209,34 +173,32 @@ public class TradeTrackerPlugin extends Plugin {
         if (event.getGroupId() == 334) {
             Widget widget = client.getWidget(334, 1);
             //Widget widget = client.getWidget(WidgetInfo.PLAYER_TRADE_FINAL_SCREEN);
-            // get player name
-            // get my contents
             String playerName = widget.getStaticChildren()[27].getText();
             String tradedItem = widget.getStaticChildren()[25].getDynamicChildren()[0].getText();
 
             playerName = playerName.split("<br>")[1];
             playerName = getPlayersName(playerName);
 
-            if (tradedItem.contains("Coins") && tradedItem.contains(amountTraded)) {
-                System.out.println("traded " + amountTraded + " to " + playerName);
+            if (tradedItem.contains("Coins") && tradedItem.contains(config.amountTraded())) {
+                System.out.println("traded " + config.amountTraded() + " to " + playerName);
                 usersTradedAlready.add(playerName);
             }
         }
     }
 
-    void updateWhiteListedNames() {
+    public void updateWhiteListedNames() {
         whiteListedPlayers.clear();
 
         NEWLINE_SPLITTER.splitToList(config.whitelistedPlayers()).stream().forEach((player) -> whiteListedPlayers.add(player.toLowerCase()));
     }
 
-    void updateAdWords() {
+    public void updateAdWords() {
         adWords.clear();
 
         NEWLINE_SPLITTER.splitToList(config.adWords()).stream().forEach((word) -> adWords.add(word.toLowerCase()));
     }
 
-    String getPlayersName(String message) {
+    public String getPlayersName(String message) {
         return jagexPrintableCharMatcher.retainFrom(message).replace('\u00A0', ' ').toLowerCase();
     }
 }
