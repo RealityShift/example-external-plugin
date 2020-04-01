@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.MessageNode;
+import net.runelite.api.Player;
+import net.runelite.api.events.OverheadTextChanged;
 import net.runelite.api.events.ScriptCallbackEvent;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.Widget;
@@ -68,6 +70,7 @@ public class TradeTrackerPlugin extends Plugin {
     @Override
     protected void shutDown() throws Exception {
         usersTradedAlready.clear();
+        advertisers.clear();
         client.refreshChat();
     }
 
@@ -82,6 +85,27 @@ public class TradeTrackerPlugin extends Plugin {
 
         //Refresh chat after config change to reflect current rules
         client.refreshChat();
+    }
+
+    @Subscribe
+    public void onOverheaadTextChangged(OverheadTextChanged event) {
+        if (!(event.getActor() instanceof Player)) {
+            return;
+        }
+
+        String playerName = getPlayersName(event.getActor().getName());
+        String playersMessage = event.getOverheadText().toLowerCase();
+
+        boolean seenAdvertising = checkMessageForAds(playersMessage);
+
+        System.out.println(seenAdvertising + ": " + playerName.toUpperCase() + " from overhead: " + playersMessage);
+
+        // if all words found and user isn't in advertisers group, add them
+        if (seenAdvertising) {
+            if (!advertisers.contains(playerName)) {
+                advertisers.add(playerName);
+            }
+        }
     }
 
     @Subscribe
@@ -110,27 +134,27 @@ public class TradeTrackerPlugin extends Plugin {
                         intStack[intStackSize - 3] = 0;
                     } else {
                         // if show ads is on, show trades if user has advertised
+                        String oldmessage = messageNode.getValue();
+
+                        if (usersTradedAlready.contains(playerName)) {
+
+                            String[] stringStack = client.getStringStack();
+                            int stringStackSize = client.getStringStackSize();
+
+                            //String message = stringStack[stringStackSize - 1];
+                            stringStack[stringStackSize - 1] = oldmessage + " - PAID!";
+                        } else if (advertisers.contains(playerName)) {
+                            if (!oldmessage.contains("seen advertising")) {
+                                String[] stringStack = client.getStringStack();
+                                int stringStackSize = client.getStringStackSize();
+
+                                //String message = stringStack[stringStackSize - 1];
+                                stringStack[stringStackSize - 1] = oldmessage + " - seen advertising.";
+                            }
+                        }
+
                         if (config.onlyShowAdvertisers()) {
-                            if (advertisers.contains(playerName)) {
-                                String oldmessage = messageNode.getValue();
-
-                                if (usersTradedAlready.contains(playerName)) {
-
-                                    String[] stringStack = client.getStringStack();
-                                    int stringStackSize = client.getStringStackSize();
-
-                                    //String message = stringStack[stringStackSize - 1];
-                                    stringStack[stringStackSize - 1] = oldmessage + " - PAID!";
-                                } else {
-                                    if (!oldmessage.contains("seen advertising")) {
-                                        String[] stringStack = client.getStringStack();
-                                        int stringStackSize = client.getStringStackSize();
-
-                                        //String message = stringStack[stringStackSize - 1];
-                                        stringStack[stringStackSize - 1] = oldmessage + " - seen advertising.";
-                                    }
-                                }
-                            } else {
+                            if (!advertisers.contains(playerName)) {
                                 intStack[intStackSize - 3] = 0;
                             }
                         }
@@ -144,32 +168,31 @@ public class TradeTrackerPlugin extends Plugin {
                     }
                 }
             } else if (chatMessageType == PUBLICCHAT) {
-                boolean allWordsFound = true;
+                // skip messages for people who have already been seen advertising
+                // this avoids unnecessary looping of each message
+                if (!advertisers.contains(playerName)) {
+                    String playersMessage = messageNode.getValue().toLowerCase();
 
-                String playersMessage = messageNode.getValue().toLowerCase();
+                    boolean seenAdvertising = checkMessageForAds(playersMessage);
 
-                // for each word in adwords, make sure the message contains it
-                for (String word : adWords) {
-                    if (!playersMessage.contains(word.toLowerCase())) {
-                        allWordsFound = false;
+                    System.out.println(seenAdvertising + ": " + playerName.toUpperCase() + " from message: " + playersMessage);
+
+                    // if seen advertising and not in the list, add them
+                    if (seenAdvertising) {
+                        if (!advertisers.contains(playerName)) {
+                            advertisers.add(playerName);
+                        }
                     }
                 }
-
-                // if all words found and user isn't in advertisers group, add them
-                if (allWordsFound) {
-                    if (!advertisers.contains(playerName)) {
-                        advertisers.add(playerName);
-                    }
-                }
+            } else {
+                System.out.println(chatMessageType);
             }
         }
     }
 
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event) {
-        System.out.println("Widget!");
-        System.out.println(event);
-
+        // if widget is 334 (second trade screen), add user to users traded
         if (event.getGroupId() == 334) {
             Widget widget = client.getWidget(334, 1);
             //Widget widget = client.getWidget(WidgetInfo.PLAYER_TRADE_FINAL_SCREEN);
@@ -179,11 +202,24 @@ public class TradeTrackerPlugin extends Plugin {
             playerName = playerName.split("<br>")[1];
             playerName = getPlayersName(playerName);
 
-            if (tradedItem.contains("Coins") && tradedItem.contains(config.amountTraded())) {
-                System.out.println("traded " + config.amountTraded() + " to " + playerName);
+            if (tradedItem.toLowerCase().contains(config.itemTraded())) {
+                System.out.println("traded " + config.itemTraded() + " to " + playerName);
                 usersTradedAlready.add(playerName);
             }
         }
+    }
+
+    // pass in a message and it will compare to the words on the adwords plugin
+    boolean checkMessageForAds(String message) {
+        boolean allWordsFound = true;
+
+        for (String word : adWords) {
+            if (!message.contains(word.toLowerCase())) {
+                allWordsFound = false;
+            }
+        }
+
+        return allWordsFound;
     }
 
     public void updateWhiteListedNames() {

@@ -48,19 +48,19 @@ public interface TradeTrackerConfig extends Config {
 	default String whitelistedPlayers() { return ""; }
 
 	@ConfigItem(
-			keyName = "amountTraded",
-			name = "Amount Traded",
-			description = "Amount traded in long form (eg. 3,000,000)",
+			keyName = "itemTraded",
+			name = "Item Traded",
+			description = "Coins, Abyssal Whip, etc.",
 			position = 3
 	)
-	default String amountTraded()
+	default String itemTraded()
 	{
 		return "";
 	}
 
 	@ConfigItem(
 			keyName = "showAdvertisers",
-			name = "Show Advertiser TRADEREQS",
+			name = "Show ONLY Advertiser TRADEREQS",
 			description = "Shows trade requests from advertisers",
 			position = 4
 	)
